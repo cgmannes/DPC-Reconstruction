@@ -1,0 +1,11 @@
+
+{
+    "exclude": [
+        "**/__pycache__",
+        "**/.git",
+        "**/.ipynb_checkpoints",
+        "**/data",
+        "**/build",
+        "**/mmdet3d.egg-info",
+    ]
+}
