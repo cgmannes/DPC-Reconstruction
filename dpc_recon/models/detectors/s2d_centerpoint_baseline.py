@@ -55,8 +55,8 @@ class S2DCenterPointBaseline(CenterPoint):
         # Build sparse model
         kwargs['type'] = 'StudentSparse2DenseCenterPoint'
         kwargs['pts_voxel_layer']['max_num_points'] = int(kwargs['pts_voxel_layer']['max_num_points'] / 2)
-        kwargs['pts_voxel_layer']['max_voxels'] = (int(kwargs['pts_voxel_layer']['max_voxels'][0] / 2),
-                                                   int(kwargs['pts_voxel_layer']['max_voxels'][1] / 2))
+        kwargs['pts_voxel_layer']['max_voxels'] = (int(kwargs['pts_voxel_layer']['max_voxels'][0] - 50000),
+                                                   int(kwargs['pts_voxel_layer']['max_voxels'][1] - 50000))
         kwargs['pts_voxel_layer']['deterministic'] = True
         kwargs['pts_neck']['type'] = 'S2DSECONDFPN'
         kwargs['pts_neck']['training'] = s2d_training

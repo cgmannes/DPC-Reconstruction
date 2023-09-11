@@ -33,6 +33,7 @@ work_dir = None
 load_from = None
 resume_from = None
 workflow = [('train', 1)]
+find_unused_parameters=True
 
 # disable opencv multithreading to avoid system being overloaded
 opencv_num_threads = 0

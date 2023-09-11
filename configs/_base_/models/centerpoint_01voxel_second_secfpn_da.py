@@ -87,7 +87,11 @@ model = dict(
             out_size_factor=8,
             voxel_size=voxel_size[:2],
             nms_type='rotate',
-            # Waymo eval
+            # # nuScenes eval
+            # pre_max_size=1000,
+            # post_max_size=83,
+            # nms_thr=0.2,
+            # # Waymo eval
             pre_max_size=4096,
             post_max_size=500,
             nms_thr=0.25)))

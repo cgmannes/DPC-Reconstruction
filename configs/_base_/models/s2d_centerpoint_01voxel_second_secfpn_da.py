@@ -1,6 +1,27 @@
 voxel_size = [0.1, 0.1, 0.15]
+TEACHER_DIR0 = f'../DPC-Reconstruction/work_dirs'
+TEACHER_DIR1 = f'/centerpoint_waymo_dense_3class_teacher_detector_seed_00'
+TEACHER_DIR2 = f'/2023_09_08_3class_teacher_detector_seed_00'
+checkpoint_dense_pth = f'{TEACHER_DIR0}{TEACHER_DIR1}{TEACHER_DIR2}/epoch_30.pth'
 model = dict(
-    type='CenterPoint',
+    type='S2DCenterPointBaseline',
+    checkpoint_dense=checkpoint_dense_pth,
+    loss_sdet=dict(
+        loss_s2d=dict(
+            type='Sparse2DenseMSELoss',
+            beta_a=10,
+            gamma_a=20,
+            beta_b=5,
+            gamma_b=20,
+        ),
+        loss_pcr=None,
+        # loss_pcr=dict(
+        #     type='Sparse2DensePCRLoss',
+        # ),
+        loss_distill=dict(
+            type='Sparse2DenseDisLoss',
+        ),
+    ),
     pts_voxel_layer=dict(
         max_num_points=20,
         voxel_size=voxel_size,
@@ -30,6 +51,8 @@ model = dict(
         conv_cfg=dict(type='Conv2d', bias=False)),
     pts_neck=dict(
         type='SECONDFPN',
+        training=True,
+        pcr=False,
         in_channels=[128, 256],
         out_channels=[256, 256],
         upsample_strides=[1, 2],
@@ -37,7 +60,7 @@ model = dict(
         upsample_cfg=dict(type='deconv', bias=False),
         use_conv_for_no_stride=True),
     pts_bbox_head=dict(
-        type='CenterHead',
+        type='S2DCenterHeadBaseline',
         in_channels=sum([256, 256]),
         tasks=[
             dict(num_class=1, class_names=['Car']),

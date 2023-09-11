@@ -16,3 +16,4 @@ work_dirs/*
 *.log
 *.log.json
 !*.sh
+*.png
