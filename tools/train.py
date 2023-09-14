@@ -26,8 +26,6 @@ from mmdet3d.datasets import build_dataset
 from mmdet3d.models import *
 from mmdet3d.utils import collect_env, get_root_logger
 from dpc_recon.apis import *
-from dpc_recon.core.hooks import *
-from dpc_recon.core.runners import *
 from dpc_recon.datasets import *
 from dpc_recon.datasets.pipelines import *
 from dpc_recon.models import *

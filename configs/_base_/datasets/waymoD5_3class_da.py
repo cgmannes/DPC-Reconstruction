@@ -37,7 +37,7 @@ db_sampler = dict(
         use_dim=[0, 1, 2, 3, 4],
         file_client_args=file_client_args))
 
-sweeps_num = 20
+sweeps_num = 0
 train_pipeline = [
     dict(
         type='LoadPointsFromMultiSweeps',
@@ -56,8 +56,10 @@ train_pipeline = [
         with_bbox_3d=True,
         with_label_3d=True,
         file_client_args=file_client_args),
-    dict(type='RemoveGroundPoints'),
     dict(type='ObjectSample', db_sampler=db_sampler),
+    dict(
+        type='RemoveGroundPoints',
+        sweeps_num=sweeps_num),
     dict(
         type='RandomFlip3D',
         sync_2d=False,
@@ -67,6 +69,7 @@ train_pipeline = [
         type='GlobalRotScaleTrans',
         rot_range=[-0.78539816, 0.78539816],
         scale_ratio_range=[0.95, 1.05]),
+    dict(type='ScaleFeaturesTanh'),
     dict(type='PointsRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='PointShuffle'),
@@ -91,7 +94,10 @@ test_pipeline = [
         with_bbox_3d=True,
         with_label_3d=True,
         file_client_args=file_client_args),
-    dict(type='RemoveGroundPoints'),
+    dict(
+        type='RemoveGroundPoints',
+        sweeps_num=sweeps_num),
+    dict(type='ScaleFeaturesTanh'),
     dict(
         type='MultiScaleFlipAug3D',
         img_scale=(1333, 800),
@@ -133,7 +139,10 @@ eval_pipeline = [
         with_bbox_3d=True,
         with_label_3d=True,
         file_client_args=file_client_args),
-    dict(type='RemoveGroundPoints'),
+    dict(
+        type='RemoveGroundPoints',
+        sweeps_num=sweeps_num),
+    dict(type='ScaleFeaturesTanh'),
     dict(
         type='DefaultFormatBundle3D',
         class_names=class_names,

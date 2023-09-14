@@ -163,10 +163,10 @@ class WaymoDataset(_WaymoDataset):
         return result_files, tmp_dir
 
     def format_results_v2(self,
-                       outputs,
-                       pklfile_prefix=None,
-                       submission_prefix=None,
-                       data_format='da'):
+                          outputs,
+                          pklfile_prefix=None,
+                          submission_prefix=None,
+                          data_format='da'):
         assert ('waymo' in data_format or 'kitti' in data_format or 'da' in data_format), \
             f'invalid data_format {data_format}'
 
@@ -247,75 +247,75 @@ class WaymoDataset(_WaymoDataset):
                  show=False,
                  out_dir=None,
                  pipeline=None):
-        assert ('waymo' in metric or 'kitti' in metric or 'da' in metric), \
-            f'invalid metric {metric}'
-        if 'da' in metric:
-            waymo_root = osp.join(
-                self.data_root.split('kitti_format')[0], 'waymo_format')
-            if pklfile_prefix is None:
-                eval_tmp_dir = tempfile.TemporaryDirectory()
-                pklfile_prefix = osp.join(eval_tmp_dir.name, 'results')
-            else:
-                eval_tmp_dir = None
-            result_files, tmp_dir = self.format_results_v2(
-                results,
-                pklfile_prefix,
-                submission_prefix,
-                data_format='da')
-            import subprocess
-            ret_bytes = subprocess.check_output(
-                'simuda/core/evaluation/waymo_utils/' +
-                f'compute_detection_metrics_main {pklfile_prefix}.bin ' +
-                f'{waymo_root}/gt_static_vel_0.1_points_5_autolab.bin',
-                shell=True)
-            ret_texts = ret_bytes.decode('utf-8')
-            print_log(ret_texts)
-            # parse the text to get ap_dict
-            ap_dict = {
-                'Vehicle/L1 mAP': 0,
-                'Vehicle/L1 mAPH': 0,
-                'Vehicle/L2 mAP': 0,
-                'Vehicle/L2 mAPH': 0,
-                'Pedestrian/L1 mAP': 0,
-                'Pedestrian/L1 mAPH': 0,
-                'Pedestrian/L2 mAP': 0,
-                'Pedestrian/L2 mAPH': 0,
-                'Sign/L1 mAP': 0,
-                'Sign/L1 mAPH': 0,
-                'Sign/L2 mAP': 0,
-                'Sign/L2 mAPH': 0,
-                'Cyclist/L1 mAP': 0,
-                'Cyclist/L1 mAPH': 0,
-                'Cyclist/L2 mAP': 0,
-                'Cyclist/L2 mAPH': 0,
-                'Truck/L1 mAP': 0,
-                'Truck/L1 mAPH': 0,
-                'Truck/L2 mAP': 0,
-                'Truck/L2 mAPH': 0,
-                'Bus/L1 mAP': 0,
-                'Bus/L1 mAPH': 0,
-                'Bus/L2 mAP': 0,
-                'Bus/L2 mAPH': 0,
-                'Motorcycle/L1 mAP': 0,
-                'Motorcycle/L1 mAPH': 0,
-                'Motorcycle/L2 mAP': 0,
-                'Motorcycle/L2 mAPH': 0
-            }
-            mAP_splits = ret_texts.split('mAP ')
-            mAPH_splits = ret_texts.split('mAPH ')
-            for idx, key in enumerate(ap_dict.keys()):
-                split_idx = int(idx / 2) + 1
-                if idx % 2 == 0:  # mAP
-                    ap_dict[key] = float(mAP_splits[split_idx].split(']')[0])
-                else:  # mAPH
-                    ap_dict[key] = float(mAPH_splits[split_idx].split(']')[0])
-            if eval_tmp_dir is not None:
-                eval_tmp_dir.cleanup()
-
-            if tmp_dir is not None:
-                tmp_dir.cleanup()
+        assert ('da' in metric), \
+            f'invalid domain adaptation metric {metric}, flag must be set to da'
+        waymo_root = osp.join(
+            self.data_root.split('kitti_format')[0], 'waymo_format')
+        if pklfile_prefix is None:
+            eval_tmp_dir = tempfile.TemporaryDirectory()
+            pklfile_prefix = osp.join(eval_tmp_dir.name, 'results')
         else:
-            ap_dict = super().__init__(results, metric, logger, pklfile_prefix,
-                                       submission_prefix, show, out_dir, pipeline)
+            eval_tmp_dir = None
+        result_files, tmp_dir = self.format_results(
+            results,
+            pklfile_prefix,
+            submission_prefix,
+            data_format='waymo')
+        import subprocess
+        ret_bytes = subprocess.check_output(
+            'dpc_recon/core/evaluation/waymo_utils/' +
+            f'compute_detection_metrics_main {pklfile_prefix}.bin ' +
+            f'{waymo_root}/gt.bin',
+            shell=True)
+        ret_texts = ret_bytes.decode('utf-8')
+        print_log(ret_texts)
+        # parse the text to get ap_dict
+        ap_dict = {
+            'Vehicle/L1 mAP': 0,
+            'Vehicle/L1 mAPH': 0,
+            'Vehicle/L2 mAP': 0,
+            'Vehicle/L2 mAPH': 0,
+            'Pedestrian/L1 mAP': 0,
+            'Pedestrian/L1 mAPH': 0,
+            'Pedestrian/L2 mAP': 0,
+            'Pedestrian/L2 mAPH': 0,
+            'Sign/L1 mAP': 0,
+            'Sign/L1 mAPH': 0,
+            'Sign/L2 mAP': 0,
+            'Sign/L2 mAPH': 0,
+            'Cyclist/L1 mAP': 0,
+            'Cyclist/L1 mAPH': 0,
+            'Cyclist/L2 mAP': 0,
+            'Cyclist/L2 mAPH': 0,
+            'Overall/L1 mAP': 0,
+            'Overall/L1 mAPH': 0,
+            'Overall/L2 mAP': 0,
+            'Overall/L2 mAPH': 0
+        }
+        mAP_splits = ret_texts.split('mAP ')
+        mAPH_splits = ret_texts.split('mAPH ')
+        for idx, key in enumerate(ap_dict.keys()):
+            split_idx = int(idx / 2) + 1
+            if idx % 2 == 0:  # mAP
+                ap_dict[key] = float(mAP_splits[split_idx].split(']')[0])
+            else:  # mAPH
+                ap_dict[key] = float(mAPH_splits[split_idx].split(']')[0])
+        ap_dict['Overall/L1 mAP'] = \
+            (ap_dict['Vehicle/L1 mAP'] + ap_dict['Pedestrian/L1 mAP'] +
+                ap_dict['Cyclist/L1 mAP']) / 3
+        ap_dict['Overall/L1 mAPH'] = \
+            (ap_dict['Vehicle/L1 mAPH'] + ap_dict['Pedestrian/L1 mAPH'] +
+                ap_dict['Cyclist/L1 mAPH']) / 3
+        ap_dict['Overall/L2 mAP'] = \
+            (ap_dict['Vehicle/L2 mAP'] + ap_dict['Pedestrian/L2 mAP'] +
+                ap_dict['Cyclist/L2 mAP']) / 3
+        ap_dict['Overall/L2 mAPH'] = \
+            (ap_dict['Vehicle/L2 mAPH'] + ap_dict['Pedestrian/L2 mAPH'] +
+                ap_dict['Cyclist/L2 mAPH']) / 3
+        if eval_tmp_dir is not None:
+            eval_tmp_dir.cleanup()
+
+        if tmp_dir is not None:
+            tmp_dir.cleanup()
 
         return ap_dict

@@ -6,6 +6,6 @@ _base_ = [
 ]
 
 seed = '00'
-sweeps_num = 20
+sweeps_num = 0
 exp_name = f'3class_detector_seed_{seed}_sweeps_{sweeps_num}'
 work_dir = f'./work_dirs/centerpoint_waymo_baseline_{exp_name}'

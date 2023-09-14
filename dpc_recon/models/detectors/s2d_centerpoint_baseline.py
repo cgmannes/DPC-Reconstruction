@@ -381,10 +381,11 @@ class S2DCenterPointBaseline(CenterPoint):
 
         # DATASET = f'nu' + f'scenes'
         DATASET = f'waymo'
-        DIR = f's2d_{DATASET}_plots'
+        sweeps_num = 0
+        DIR = f's2d_{DATASET}_plots_{sweeps_num}_sweeps'
         plt.tight_layout()
         os.makedirs(f'{DIR}', exist_ok=True)
-        plt.savefig(f'{DIR}/bev_scatter_point_cloud_{time_string}.png', dpi=300)
+        plt.savefig(f'{DIR}/bev_scatter_point_cloud_{sweeps_num}_sweeps_{time_string}.png', dpi=300)
         plt.close()
 
         # for i in range(self.div):

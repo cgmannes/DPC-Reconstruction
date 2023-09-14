@@ -21,8 +21,6 @@ from mmdet.apis import multi_gpu_test, set_random_seed
 from mmdet.datasets import replace_ImageToTensor
 
 from dpc_recon.apis import *
-from dpc_recon.core.hooks import *
-from dpc_recon.core.runners import *
 from dpc_recon.datasets import *
 from dpc_recon.datasets.pipelines import *
 from dpc_recon.models import *

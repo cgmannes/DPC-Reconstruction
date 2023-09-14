@@ -58,6 +58,9 @@ train_pipeline = [
         file_client_args=file_client_args),
     dict(type='ObjectSample', db_sampler=db_sampler),
     dict(
+        type='RemoveGroundPoints',
+        sweeps_num=sweeps_num),
+    dict(
         type='GlobalRotScaleTrans',
         rot_range=[-0.78539816, 0.78539816],
         scale_ratio_range=[0.95, 1.05]),
@@ -69,7 +72,8 @@ train_pipeline = [
     # Create a copy of sparse point cloud to prepare loading for dense
     dict(type='CopyData', src='points', dst='points_dense'),
     dict(type='RemoveObjectPoints', points_name='points_dense'),
-    dict(type='LoadAggregatedPoints',
+    dict(
+        type='LoadAggregatedPoints',
         data_root='data/lstk/complete/waymo',
         metadata_path='data/lstk/complete/waymo/metadata_train.pkl',
         dbinfos_path='data/waymo/kitti_format/waymo_dbinfos_train_autolab_3class.pkl',
@@ -77,9 +81,9 @@ train_pipeline = [
         load_dims=[3, 3],
         use_dims=[0, 1, 2, 3, 4],
         load_as=['points_dense', 'points_fg']),
-    # dict(type='RemoveGroundPoints', points_name=['points', 'points_dense']),
-    dict(type='ScaleFeaturesTanh',
-         points_name=['points', 'points_dense', 'points_fg']),
+    dict(
+        type='ScaleFeaturesTanh',
+        points_name=['points', 'points_dense', 'points_fg']),
     dict(type='PointsRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=class_names),
@@ -104,7 +108,9 @@ test_pipeline = [
         pad_empty_sweeps=True,
         remove_close=True,
         test_mode=False),
-    # dict(type='RemoveGroundPoints'),
+    dict(
+        type='RemoveGroundPoints',
+        sweeps_num=sweeps_num),
     dict(type='ScaleFeaturesTanh'),
     dict(
         type='MultiScaleFlipAug3D',
@@ -142,7 +148,9 @@ eval_pipeline = [
         pad_empty_sweeps=True,
         remove_close=True,
         test_mode=False),
-    # dict(type='RemoveGroundPoints'),
+    dict(
+        type='RemoveGroundPoints',
+        sweeps_num=sweeps_num),
     dict(type='ScaleFeaturesTanh'),
     dict(
         type='DefaultFormatBundle3D',
@@ -153,7 +161,7 @@ eval_pipeline = [
 
 data = dict(
     samples_per_gpu=2,
-    workers_per_gpu=4,
+    workers_per_gpu=24,
     train=dict(
         type='RepeatDataset',
         times=1,

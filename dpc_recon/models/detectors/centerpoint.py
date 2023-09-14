@@ -212,8 +212,9 @@ class CenterPoint(_CenterPoint):
         self.ext=[-75.2/factor, 75.2/factor, -75.2/factor, 75.2/factor]
         self.orig='lower'
 
-        # DENSITY = f'sparse'.capitalize()
-        DENSITY = f'dense'.capitalize()
+        sweeps_num = 0
+        DENSITY = f'sparse'.capitalize()
+        # DENSITY = f'dense'.capitalize()
         # DATASET = f'nu' + f'scenes'.capitalize()
         DATASET = f'waymo'.capitalize()
         plt.figure(figsize=(10,10))
@@ -234,10 +235,10 @@ class CenterPoint(_CenterPoint):
         plt.xlim(-75.2/factor,75.2/factor)
         plt.ylim(-75.2/factor,75.2/factor)
 
-        DIR = f'{DENSITY.lower()}_{DATASET.lower()}_plots'
+        DIR = f'{DENSITY.lower()}_{DATASET.lower()}_plots_{sweeps_num}_sweeps'
         plt.tight_layout()
         os.makedirs(f'{DIR}', exist_ok=True)
-        plt.savefig(f'{DIR}/bev_scatter_point_cloud_{time_string}.png', dpi=100)
+        plt.savefig(f'{DIR}/bev_scatter_point_cloud_{sweeps_num}_sweeps_{time_string}.png', dpi=100)
         plt.close()
 
         # fig = plt.figure(figsize=(10,10))
