@@ -42,6 +42,7 @@ train_pipeline = [
     dict(
         type='LoadPointsFromMultiSweeps',
         coord_type='LIDAR',
+        dataset_type='Waymo',
         load_dim=6,
         use_dim=[0, 1, 2, 3, 4],
         shift_height=False,
@@ -80,6 +81,7 @@ test_pipeline = [
     dict(
         type='LoadPointsFromMultiSweeps',
         coord_type='LIDAR',
+        dataset_type='Waymo',
         load_dim=6,
         use_dim=[0, 1, 2, 3, 4],
         shift_height=False,
@@ -109,7 +111,11 @@ test_pipeline = [
                 rot_range=[0, 0],
                 scale_ratio_range=[1., 1.],
                 translation_std=[0, 0, 0]),
-            dict(type='RandomFlip3D'),
+            dict(
+                type='RandomFlip3D',
+                sync_2d=False,
+                flip_ratio_bev_horizontal=0.0,
+                flip_ratio_bev_vertical=0.0),
             dict(
                 type='PointsRangeFilter', point_cloud_range=point_cloud_range),
             dict(
@@ -125,6 +131,7 @@ eval_pipeline = [
     dict(
         type='LoadPointsFromMultiSweeps',
         coord_type='LIDAR',
+        dataset_type='Waymo',
         load_dim=6,
         use_dim=[0, 1, 2, 3, 4],
         shift_height=False,
@@ -169,7 +176,7 @@ data = dict(
             # and box_type_3d='Depth' in sunrgbd and scannet dataset.
             box_type_3d='LiDAR',
             # load one frame every five frames
-            load_interval=5)),
+            load_interval=10)),
     val=dict(
         type=dataset_type,
         data_root=data_root,

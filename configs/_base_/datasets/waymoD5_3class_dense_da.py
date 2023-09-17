@@ -104,7 +104,11 @@ test_pipeline = [
                 rot_range=[0, 0],
                 scale_ratio_range=[1., 1.],
                 translation_std=[0, 0, 0]),
-            dict(type='RandomFlip3D'),
+            dict(
+                type='RandomFlip3D',
+                sync_2d=False,
+                flip_ratio_bev_horizontal=0.0,
+                flip_ratio_bev_vertical=0.0),
             dict(
                 type='PointsRangeFilter', point_cloud_range=point_cloud_range),
             dict(

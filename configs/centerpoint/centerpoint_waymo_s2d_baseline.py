@@ -5,7 +5,8 @@ _base_ = [
     '../_base_/default_runtime.py',
 ]
 
-seed = '00'
+seed = 0
 sweeps_num = 0
-exp_name = f'3class_detector_seed_{seed}_sweeps_{sweeps_num}'
+load_interval = 10
+exp_name = f'3class_detector_seed_{seed}_sweeps_{sweeps_num}_load_{load_interval}'
 work_dir = f'./work_dirs/centerpoint_waymo_s2d_{exp_name}'

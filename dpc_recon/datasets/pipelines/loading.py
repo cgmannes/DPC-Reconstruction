@@ -78,6 +78,7 @@ class LoadPointsFromMultiSweeps(_LoadPointsFromMultiSweeps):
 
     def __init__(self,
                  coord_type,
+                 dataset_type,
                  load_dim=6,
                  use_dim=[0, 1, 2, 3, 4],
                  shift_height=False,
@@ -94,8 +95,11 @@ class LoadPointsFromMultiSweeps(_LoadPointsFromMultiSweeps):
         assert max(use_dim) < load_dim, \
             f'Expect all used dimensions < {load_dim}, got {use_dim}'
         assert coord_type in ['CAMERA', 'LIDAR', 'DEPTH']
+        assert dataset_type.lower() in ['waymo', 'nuscenes'], \
+            f'The dataset_type must be waymo or nuscenes'
 
         self.coord_type = coord_type
+        self.dataset_type = dataset_type.lower()
         self.load_dim = load_dim
         self.use_dim = use_dim
         self.file_client_args = file_client_args.copy()
@@ -157,9 +161,15 @@ class LoadPointsFromMultiSweeps(_LoadPointsFromMultiSweeps):
         if self.remove_close:
             points = self._remove_close(points.numpy())
             points = torch.tensor(points).to(dtype=torch.float32)
-        cur_pose = torch.tensor(results['pose']).to(dtype=torch.float32)
-        points[:,:3] = points[:,:3] @ cur_pose[:3,:3].T
-        points[:,:3] += cur_pose[:3,3]
+        if self.dataset_type in ['waymo']:
+            cur_pose = torch.tensor(results['pose']).to(dtype=torch.float32)
+            points[:,:3] = points[:,:3] @ cur_pose[:3,:3].T
+            points[:,:3] += cur_pose[:3,3]
+        elif self.dataset_type in ['nuscenes']:
+            points[:, :3] = points[:, :3] @ results['lidar2ego_rotation'].T
+            points[:, :3] += results['lidar2ego_translation']
+            points[:, :3] = points[:, :3] @ results['ego2global_rotation'].T
+            points[:, :3] += results['ego2global_translation']
         points = points_class(
             points, points_dim=points.shape[-1], attribute_dims=attribute_dims)
         sweep_points_list = [points]
@@ -183,17 +193,26 @@ class LoadPointsFromMultiSweeps(_LoadPointsFromMultiSweeps):
                     len(results['sweeps']), self.sweeps_num, replace=False)
             for idx in choices:
                 sweep = results['sweeps'][idx]
-                pts_filename = sweep['velodyne_path']
-                points_sweep = self._load_points(f'data/waymo/kitti_format/{pts_filename}')
+                if self.dataset_type in ['waymo']:
+                    pts_filename = sweep['velodyne_path']
+                    points_sweep = self._load_points(f'data/waymo/kitti_format/{pts_filename}')
+                elif self.dataset_type in ['nuscenes']:
+                    points_sweep = self._load_points(sweep['data_path'])
                 points_sweep = np.copy(points_sweep).reshape(-1, self.load_dim)
                 points_sweep = torch.tensor(points_sweep).to(dtype=torch.float32)
                 if self.remove_close:
                     points_sweep = self._remove_close(points_sweep.numpy())
                     points_sweep = torch.tensor(points_sweep).to(dtype=torch.float32)
                 sweep_ts = sweep['timestamp'] / 1e6
-                pose = torch.tensor(sweep['pose']).to(dtype=torch.float32)
-                points_sweep[:,:3] = points_sweep[:,:3] @ pose[:3,:3].T
-                points_sweep[:,:3] += pose[:3,3]
+                if self.dataset_type in ['waymo']:
+                    pose = torch.tensor(sweep['pose']).to(dtype=torch.float32)
+                    points_sweep[:,:3] = points_sweep[:,:3] @ pose[:3,:3].T
+                    points_sweep[:,:3] += pose[:3,3]
+                elif self.dataset_type in ['nuscenes']:
+                    points_sweep[:, :3] = points_sweep[:, :3] @ sweep['lidar2ego_rotation'].T
+                    points_sweep[:, :3] += sweep['lidar2ego_translation']
+                    points_sweep[:, :3] = points_sweep[:, :3] @ sweep['ego2global_rotation'].T
+                    points_sweep[:, :3] += sweep['ego2global_translation']
                 points_sweep[:, 4] = ts - sweep_ts
                 points_sweep = points_class(
                     points_sweep, points_dim=points_sweep.shape[-1], attribute_dims=attribute_dims)
@@ -201,8 +220,14 @@ class LoadPointsFromMultiSweeps(_LoadPointsFromMultiSweeps):
 
         points = points.cat(sweep_points_list)
         points = points.tensor.to(dtype=torch.float32)
-        points[:,:3] -= cur_pose[:3,3]
-        points[:,:3] = points[:,:3] @ cur_pose[:3,:3]
+        if self.dataset_type in ['waymo']:
+            points[:,:3] -= cur_pose[:3,3]
+            points[:,:3] = points[:,:3] @ cur_pose[:3,:3]
+        elif self.dataset_type in ['nuscenes']:
+            points[:, :3] -= results['ego2global_translation']
+            points[:, :3] = points[:, :3] @ results['ego2global_rotation']
+            points[:, :3] -= results['lidar2ego_translation']
+            points[:, :3] = points[:, :3] @ results['lidar2ego_rotation']
         points = points_class(
             points, points_dim=points.shape[-1], attribute_dims=attribute_dims)
         results['points'] = points[:, self.use_dim]

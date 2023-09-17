@@ -1,8 +1,10 @@
+_base_ = [
+    './waymoD5_3class_da.py',
+]
+
 # dataset settings
-# D5 in the config name means the whole dataset is divided into 5 folds
-# We only use one fold for efficient experiments
-dataset_type = 'WaymoDataset'
-data_root = 'data/waymo/kitti_format/'
+dataset_type = 'NuScenesDataset'
+data_root = 'data/nuscenes/'
 file_client_args = dict(backend='disk')
 # Uncomment the following if use ceph or other file clients.
 # See https://mmcv.readthedocs.io/en/latest/api.html#mmcv.fileio.FileClient
@@ -15,34 +17,15 @@ class_names = [
 ]
 point_cloud_range = [-75.2, -75.2, -2, 75.2, 75.2, 4]
 input_modality = dict(use_lidar=True, use_camera=False)
-db_sampler = dict(
-    data_root=data_root,
-    info_path=data_root + 'waymo_dbinfos_train.pkl',
-    rate=1.0,
-    prepare=dict(
-        filter_by_difficulty=[-1],
-        filter_by_min_points=dict(
-            Car=5,
-            Pedestrian=10,
-            Cyclist=10)),
-    classes=class_names,
-    sample_groups=dict(
-        Car=15,
-        Pedestrian=10,
-        Cyclist=10),
-    points_loader=dict(
-        type='LoadPointsFromFile',
-        coord_type='LIDAR',
-        load_dim=5,
-        use_dim=[0, 1, 2, 3, 4],
-        file_client_args=file_client_args))
 
 sweeps_num = 0
 train_pipeline = [
+]
+test_pipeline = [
     dict(
         type='LoadPointsFromMultiSweeps',
         coord_type='LIDAR',
-        dataset_type='Waymo',
+        dataset_type='Nuscenes',
         load_dim=6,
         use_dim=[0, 1, 2, 3, 4],
         shift_height=False,
@@ -57,59 +40,6 @@ train_pipeline = [
         with_bbox_3d=True,
         with_label_3d=True,
         file_client_args=file_client_args),
-    dict(type='ObjectSample', db_sampler=db_sampler),
-    dict(
-        type='RemoveGroundPoints',
-        sweeps_num=sweeps_num),
-    dict(
-        type='GlobalRotScaleTrans',
-        rot_range=[-0.78539816, 0.78539816],
-        scale_ratio_range=[0.95, 1.05]),
-    dict(
-        type='RandomFlip3D',
-        sync_2d=False,
-        flip_ratio_bev_horizontal=0.5,
-        flip_ratio_bev_vertical=0.5),
-    # Create a copy of sparse point cloud to prepare loading for dense
-    dict(type='CopyData', src='points', dst='points_dense'),
-    dict(type='RemoveObjectPoints', points_name='points_dense'),
-    dict(
-        type='LoadAggregatedPoints',
-        data_root='data/lstk/complete/waymo',
-        metadata_path='data/lstk/complete/waymo/metadata_train.pkl',
-        dbinfos_path='data/waymo/kitti_format/waymo_dbinfos_train_autolab_3class.pkl',
-        load_scene=False,
-        load_dims=[3, 3],
-        use_dims=[0, 1, 2, 3, 4],
-        load_as=['points_dense', 'points_fg']),
-    dict(
-        type='ScaleFeaturesTanh',
-        points_name=['points', 'points_dense', 'points_fg']),
-    dict(type='PointsRangeFilter', point_cloud_range=point_cloud_range),
-    dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
-    dict(type='ObjectNameFilter', classes=class_names),
-    dict(type='PointShuffle'),
-    dict(type='PointShuffle', points_name='points_dense'),
-    dict(type='PointShuffle', points_name='points_fg'),
-    dict(type='DefaultFormatBundle3D', class_names=class_names,
-         format_cfg=dict(points_dense={}, points_fg={})),
-    dict(type='Collect3D', keys=['points', 'gt_bboxes_3d', 'gt_labels_3d',
-                                 'points_dense', 'points_fg'])
-]
-test_pipeline = [
-    dict(
-        type='LoadPointsFromMultiSweeps',
-        coord_type='LIDAR',
-        dataset_type='Waymo',
-        load_dim=6,
-        use_dim=[0, 1, 2, 3, 4],
-        shift_height=False,
-        use_color=False,
-        file_client_args=file_client_args,
-        sweeps_num=sweeps_num,
-        pad_empty_sweeps=True,
-        remove_close=True,
-        test_mode=False),
     dict(
         type='RemoveGroundPoints',
         sweeps_num=sweeps_num),
@@ -145,7 +75,7 @@ eval_pipeline = [
     dict(
         type='LoadPointsFromMultiSweeps',
         coord_type='LIDAR',
-        dataset_type='Waymo',
+        dataset_type='Nuscenes',
         load_dim=6,
         use_dim=[0, 1, 2, 3, 4],
         shift_height=False,
@@ -155,6 +85,11 @@ eval_pipeline = [
         pad_empty_sweeps=True,
         remove_close=True,
         test_mode=False),
+    dict(
+        type='LoadAnnotations3D',
+        with_bbox_3d=True,
+        with_label_3d=True,
+        file_client_args=file_client_args),
     dict(
         type='RemoveGroundPoints',
         sweeps_num=sweeps_num),
@@ -170,41 +105,49 @@ data = dict(
     samples_per_gpu=2,
     workers_per_gpu=24,
     train=dict(
-        type='RepeatDataset',
-        times=1,
+        type='CBGSDataset',
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
-            ann_file=data_root + 'waymo_infos_train.pkl',
-            split='training',
+            ann_file=data_root + 'nuscenes_infos_train.pkl',
             pipeline=train_pipeline,
-            modality=input_modality,
             classes=class_names,
+            modality=input_modality,
             test_mode=False,
+            use_valid_flag=True,
+            with_velocity=False,
             # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
             # and box_type_3d='Depth' in sunrgbd and scannet dataset.
-            box_type_3d='LiDAR',
-            # load one frame every five frames
-            load_interval=10)),
+            box_type_3d='LiDAR')),
     val=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'waymo_infos_val.pkl',
-        split='training',
+        ann_file=data_root + 'nuscenes_infos_val.pkl',
         pipeline=test_pipeline,
-        modality=input_modality,
         classes=class_names,
+        modality=input_modality,
         test_mode=True,
+        with_velocity=False,
         box_type_3d='LiDAR'),
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'waymo_infos_val.pkl',
-        split='training',
+        ann_file=data_root + 'nuscenes_infos_val.pkl',
         pipeline=test_pipeline,
-        modality=input_modality,
         classes=class_names,
+        modality=input_modality,
         test_mode=True,
+        with_velocity=False,
+        box_type_3d='LiDAR'),
+    st=dict(
+        type=dataset_type,
+        data_root=data_root,
+        ann_file=data_root + 'nuscenes_infos_train.pkl',
+        pipeline=test_pipeline,
+        classes=class_names,
+        modality=input_modality,
+        test_mode=True,
+        with_velocity=False,
         box_type_3d='LiDAR'))
 
 evaluation = dict(interval=31, pipeline=eval_pipeline)
