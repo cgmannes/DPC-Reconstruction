@@ -17,7 +17,7 @@ from mmseg import __version__ as mmseg_version
 
 from simuda import *
 from lstk.aggregation.mmdet3d_wrapper import *
-from mmcv import Config, DictAction
+from mmcv import Config, ConfigDict, DictAction
 from mmcv.runner import get_dist_info, init_dist
 from mmdet import *
 from mmdet.apis import set_random_seed
@@ -29,6 +29,7 @@ from dpc_recon.apis import *
 from dpc_recon.datasets import *
 from dpc_recon.datasets.pipelines import *
 from dpc_recon.models import *
+from dpc_recon.models.detectors.util_functions import *
 
 
 def parse_args():
@@ -37,6 +38,8 @@ def parse_args():
     parser.add_argument('--work-dir', help='the dir to save logs and models')
     parser.add_argument(
         '--resume-from', help='the checkpoint file to resume from')
+    parser.add_argument(
+        '--fine-tune', help='the checkpoint to be fine-tuned')
     parser.add_argument(
         '--no-validate',
         action='store_true',
@@ -207,6 +210,10 @@ def main():
         train_cfg=cfg.get('train_cfg'),
         test_cfg=cfg.get('test_cfg'))
     # model.init_weights()
+    if args.fine_tune is not None:
+        model_checkpoint = args.fine_tune
+        model = init_model(cfg.model, model_checkpoint)
+        print('-------------------- Loaded model for fine-tuning --------------------')
     if cfg.model['type']=='S2DCenterPoint' or cfg.model['type']=='S2DCenterPointBaseline':
         model.centerpoint_model_dense.eval()
 

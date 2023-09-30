@@ -11,7 +11,7 @@ file_client_args = dict(backend='disk')
 #     backend='petrel', path_mapping=dict(data='s3://waymo_data/'))
 
 class_names = [
-    'Car', 'Pedestrian', 'Cyclist',
+    'Car',
 ]
 point_cloud_range = [-75.2, -75.2, -2, 75.2, 75.2, 4]
 input_modality = dict(use_lidar=True, use_camera=False)
@@ -22,14 +22,10 @@ db_sampler = dict(
     prepare=dict(
         filter_by_difficulty=[-1],
         filter_by_min_points=dict(
-            Car=5,
-            Pedestrian=10,
-            Cyclist=10)),
+            Car=5)),
     classes=class_names,
     sample_groups=dict(
-        Car=15,
-        Pedestrian=10,
-        Cyclist=10),
+        Car=15),
     points_loader=dict(
         type='LoadPointsFromFile',
         coord_type='LIDAR',
@@ -60,7 +56,8 @@ train_pipeline = [
     dict(type='ObjectSample', db_sampler=db_sampler),
     dict(
         type='RemoveGroundPoints',
-        sweeps_num=sweeps_num),
+        sweeps_num=sweeps_num,
+        dataset_type='Waymo'),
     dict(
         type='GlobalRotScaleTrans',
         rot_range=[-0.78539816, 0.78539816],
@@ -72,7 +69,12 @@ train_pipeline = [
         flip_ratio_bev_vertical=0.5),
     # Create a copy of sparse point cloud to prepare loading for dense
     dict(type='CopyData', src='points', dst='points_dense'),
-    dict(type='RemoveObjectPoints', points_name='points_dense'),
+    dict(
+        type='RemoveObjectPoints',
+        sweeps_num=sweeps_num,
+        points_name='points_dense',
+        dataset_type='Waymo',
+        coord_type='LIDAR'),
     dict(
         type='LoadAggregatedPoints',
         data_root='data/lstk/complete/waymo',
@@ -112,7 +114,8 @@ test_pipeline = [
         test_mode=False),
     dict(
         type='RemoveGroundPoints',
-        sweeps_num=sweeps_num),
+        sweeps_num=sweeps_num,
+        dataset_type='Waymo'),
     dict(type='ScaleFeaturesTanh'),
     dict(
         type='MultiScaleFlipAug3D',
@@ -157,7 +160,8 @@ eval_pipeline = [
         test_mode=False),
     dict(
         type='RemoveGroundPoints',
-        sweeps_num=sweeps_num),
+        sweeps_num=sweeps_num,
+        dataset_type='Waymo'),
     dict(type='ScaleFeaturesTanh'),
     dict(
         type='DefaultFormatBundle3D',
@@ -175,7 +179,7 @@ data = dict(
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
-            ann_file=data_root + 'waymo_infos_train.pkl',
+            ann_file=data_root + 'waymo_infos_train_20_sweeps.pkl',
             split='training',
             pipeline=train_pipeline,
             modality=input_modality,
@@ -189,7 +193,7 @@ data = dict(
     val=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'waymo_infos_val.pkl',
+        ann_file=data_root + 'waymo_infos_val_20_sweeps.pkl',
         split='training',
         pipeline=test_pipeline,
         modality=input_modality,
@@ -199,7 +203,7 @@ data = dict(
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'waymo_infos_val.pkl',
+        ann_file=data_root + 'waymo_infos_val_20_sweeps.pkl',
         split='training',
         pipeline=test_pipeline,
         modality=input_modality,

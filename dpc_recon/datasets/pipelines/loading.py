@@ -159,17 +159,19 @@ class LoadPointsFromMultiSweeps(_LoadPointsFromMultiSweeps):
         points = results['points'].tensor
         points[:, 4] = 0
         if self.remove_close:
-            points = self._remove_close(points.numpy())
+            points = self._remove_close(points.numpy(), radius=1.0)
             points = torch.tensor(points).to(dtype=torch.float32)
         if self.dataset_type in ['waymo']:
-            cur_pose = torch.tensor(results['pose']).to(dtype=torch.float32)
+            cur_pose = torch.tensor(np.copy(results['pose'])).to(dtype=torch.float32)
             points[:,:3] = points[:,:3] @ cur_pose[:3,:3].T
             points[:,:3] += cur_pose[:3,3]
         elif self.dataset_type in ['nuscenes']:
-            points[:, :3] = points[:, :3] @ results['lidar2ego_rotation'].T
-            points[:, :3] += results['lidar2ego_translation']
-            points[:, :3] = points[:, :3] @ results['ego2global_rotation'].T
-            points[:, :3] += results['ego2global_translation']
+            cur_lidar2ego = torch.tensor(np.copy(results['lidar2ego'])).to(dtype=torch.float32)
+            points[:, :3] = points[:, :3] @ cur_lidar2ego[:3,:3].T
+            points[:, :3] += cur_lidar2ego[:3,3]
+            cur_ego2global = torch.tensor(np.copy(results['ego2global'])).to(dtype=torch.float32)
+            points[:, :3] = points[:, :3] @ cur_ego2global[:3,:3].T
+            points[:, :3] += cur_ego2global[:3,3]
         points = points_class(
             points, points_dim=points.shape[-1], attribute_dims=attribute_dims)
         sweep_points_list = [points]
@@ -177,7 +179,7 @@ class LoadPointsFromMultiSweeps(_LoadPointsFromMultiSweeps):
         if self.pad_empty_sweeps and len(results['sweeps']) == 0:
             for i in range(self.sweeps_num):
                 if self.remove_close:
-                    points = self._remove_close(points.tensor.numpy())
+                    points = self._remove_close(points.tensor.numpy(), radius=1.0)
                     points = points_class(
                         points, points_dim=points.shape[-1], attribute_dims=attribute_dims)
                     sweep_points_list.append(points)
@@ -189,8 +191,7 @@ class LoadPointsFromMultiSweeps(_LoadPointsFromMultiSweeps):
             elif self.test_mode:
                 choices = np.arange(self.sweeps_num)
             else:
-                choices = np.random.choice(
-                    len(results['sweeps']), self.sweeps_num, replace=False)
+                choices = np.arange(self.sweeps_num)
             for idx in choices:
                 sweep = results['sweeps'][idx]
                 if self.dataset_type in ['waymo']:
@@ -201,19 +202,23 @@ class LoadPointsFromMultiSweeps(_LoadPointsFromMultiSweeps):
                 points_sweep = np.copy(points_sweep).reshape(-1, self.load_dim)
                 points_sweep = torch.tensor(points_sweep).to(dtype=torch.float32)
                 if self.remove_close:
-                    points_sweep = self._remove_close(points_sweep.numpy())
+                    points_sweep = self._remove_close(points_sweep.numpy(), radius=1.0)
                     points_sweep = torch.tensor(points_sweep).to(dtype=torch.float32)
                 sweep_ts = sweep['timestamp'] / 1e6
                 if self.dataset_type in ['waymo']:
-                    pose = torch.tensor(sweep['pose']).to(dtype=torch.float32)
+                    pose = torch.tensor(np.copy(sweep['pose'])).to(dtype=torch.float32)
                     points_sweep[:,:3] = points_sweep[:,:3] @ pose[:3,:3].T
                     points_sweep[:,:3] += pose[:3,3]
                 elif self.dataset_type in ['nuscenes']:
-                    points_sweep[:, :3] = points_sweep[:, :3] @ sweep['lidar2ego_rotation'].T
-                    points_sweep[:, :3] += sweep['lidar2ego_translation']
-                    points_sweep[:, :3] = points_sweep[:, :3] @ sweep['ego2global_rotation'].T
-                    points_sweep[:, :3] += sweep['ego2global_translation']
-                points_sweep[:, 4] = ts - sweep_ts
+                    nusc_ann_sweep = results['ann_info']['sweeps'][idx]
+                    sensor2ego = torch.tensor(np.copy(nusc_ann_sweep['sensor2ego'])).to(dtype=torch.float32)
+                    points_sweep[:, :3] = points_sweep[:, :3] @ sensor2ego[:3,:3].T
+                    points_sweep[:, :3] += sensor2ego[:3,3]
+                    ego2global = torch.tensor(np.copy(nusc_ann_sweep['ego2global'])).to(dtype=torch.float32)
+                    points_sweep[:, :3] = points_sweep[:, :3] @ ego2global[:3,:3].T
+                    points_sweep[:, :3] += ego2global[:3,3]
+                # points_sweep[:, 4] = ts - sweep_ts
+                points_sweep[:, 4] = idx
                 points_sweep = points_class(
                     points_sweep, points_dim=points_sweep.shape[-1], attribute_dims=attribute_dims)
                 sweep_points_list.append(points_sweep)
@@ -224,10 +229,10 @@ class LoadPointsFromMultiSweeps(_LoadPointsFromMultiSweeps):
             points[:,:3] -= cur_pose[:3,3]
             points[:,:3] = points[:,:3] @ cur_pose[:3,:3]
         elif self.dataset_type in ['nuscenes']:
-            points[:, :3] -= results['ego2global_translation']
-            points[:, :3] = points[:, :3] @ results['ego2global_rotation']
-            points[:, :3] -= results['lidar2ego_translation']
-            points[:, :3] = points[:, :3] @ results['lidar2ego_rotation']
+            points[:, :3] -= cur_ego2global[:3,3]
+            points[:, :3] = points[:, :3] @ cur_ego2global[:3,:3]
+            points[:, :3] -= cur_lidar2ego[:3,3]
+            points[:, :3] = points[:, :3] @ cur_lidar2ego[:3,:3]
         points = points_class(
             points, points_dim=points.shape[-1], attribute_dims=attribute_dims)
         results['points'] = points[:, self.use_dim]
@@ -246,12 +251,15 @@ class LoadPointsFromMultiSweeps(_LoadPointsFromMultiSweeps):
 
 @PIPELINES.register_module(force=True)
 class RemoveGroundPoints(_RemoveGroundPoints):
-    def __init__(self, sweeps_num=0, points_name='points', voxel_size=[2, 2],
-                 z_quantile=0.1, z_threshold=0.3):
+    def __init__(self, sweeps_num, dataset_type, points_name='points',
+                 voxel_size=[2, 2], z_quantile=0.1, z_threshold=0.3):
         import open3d.ml.torch as ml3d
+        assert dataset_type.lower() in ['waymo', 'nuscenes'], \
+                    f'The dataset_type must be waymo or nuscenes'
         if not isinstance(points_name, (list, tuple)):
             points_name = [points_name]
         self.sweeps_num = sweeps_num
+        self.dataset_type = dataset_type.lower()
         self.points_name = points_name
         self.voxel_size = voxel_size
         self.z_quantile = z_quantile
@@ -278,7 +286,12 @@ class RemoveGroundPoints(_RemoveGroundPoints):
                 indices_i = result.voxel_point_indices[begin:end]
                 points_i = points_t[indices_i]
                 z_min = points_i[:,2].quantile(self.z_quantile)
-                indices.append(indices_i[points_i[:,2] > z_min + self.z_threshold])
+                if self.dataset_type in ['waymo']:
+                    indices.append(indices_i[torch.logical_or(
+                        points_i[:,2] > z_min + self.z_threshold, points_i[:,4] == 0)])
+                elif self.dataset_type in ['nuscenes']:
+                    indices.append(indices_i[torch.logical_or(
+                        points_i[:,2] > z_min + self.z_threshold, points_i[:,4] < 10)])
             input_dict[name] = points[torch.cat(indices)]
         return input_dict
 

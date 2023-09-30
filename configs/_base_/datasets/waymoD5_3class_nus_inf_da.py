@@ -1,7 +1,3 @@
-_base_ = [
-    './waymoD5_3class_da.py',
-]
-
 # dataset settings
 dataset_type = 'NuScenesDataset'
 data_root = 'data/nuscenes/'
@@ -13,7 +9,7 @@ file_client_args = dict(backend='disk')
 #     backend='petrel', path_mapping=dict(data='s3://waymo_data/'))
 
 class_names = [
-    'Car', 'Pedestrian', 'Cyclist',
+    'car',
 ]
 point_cloud_range = [-75.2, -75.2, -2, 75.2, 75.2, 4]
 input_modality = dict(use_lidar=True, use_camera=False)
@@ -26,7 +22,7 @@ test_pipeline = [
         type='LoadPointsFromMultiSweeps',
         coord_type='LIDAR',
         dataset_type='Nuscenes',
-        load_dim=6,
+        load_dim=5,
         use_dim=[0, 1, 2, 3, 4],
         shift_height=False,
         use_color=False,
@@ -42,8 +38,15 @@ test_pipeline = [
         file_client_args=file_client_args),
     dict(
         type='RemoveGroundPoints',
-        sweeps_num=sweeps_num),
-    dict(type='ScaleFeaturesTanh'),
+        sweeps_num=sweeps_num,
+        dataset_type='Nuscenes'),
+    dict(
+        type='ScaleFeaturesMinMax',
+        data_range=(0, 255),
+        target_range=(0, 1)),
+    dict(
+        type='GlobalTrans',
+        translation=[0, 0, 1.8]),
     dict(
         type='MultiScaleFlipAug3D',
         img_scale=(1333, 800),
@@ -61,12 +64,13 @@ test_pipeline = [
                 flip_ratio_bev_horizontal=0.0,
                 flip_ratio_bev_vertical=0.0),
             dict(
-                type='PointsRangeFilter', point_cloud_range=point_cloud_range),
+                type='PointsRangeFilter',
+                point_cloud_range=point_cloud_range),
             dict(
                 type='DefaultFormatBundle3D',
                 class_names=class_names,
                 with_label=False),
-            dict(type='Collect3D', keys=['points'])
+            dict(type='Collect3D', keys=['points', 'gt_bboxes_3d', 'gt_labels_3d'])
         ])
 ]
 # construct a pipeline for data and gt loading in show function
@@ -76,7 +80,7 @@ eval_pipeline = [
         type='LoadPointsFromMultiSweeps',
         coord_type='LIDAR',
         dataset_type='Nuscenes',
-        load_dim=6,
+        load_dim=5,
         use_dim=[0, 1, 2, 3, 4],
         shift_height=False,
         use_color=False,
@@ -92,13 +96,20 @@ eval_pipeline = [
         file_client_args=file_client_args),
     dict(
         type='RemoveGroundPoints',
-        sweeps_num=sweeps_num),
-    dict(type='ScaleFeaturesTanh'),
+        sweeps_num=sweeps_num,
+        dataset_type='Nuscenes'),
+    dict(
+        type='ScaleFeaturesMinMax',
+        data_range=(0, 255),
+        target_range=(0, 1)),
+    dict(
+        type='GlobalTrans',
+        translation=[0, 0, 1.8]),
     dict(
         type='DefaultFormatBundle3D',
         class_names=class_names,
         with_label=False),
-    dict(type='Collect3D', keys=['points'])
+    dict(type='Collect3D', keys=['points', 'gt_bboxes_3d', 'gt_labels_3d',])
 ]
 
 data = dict(

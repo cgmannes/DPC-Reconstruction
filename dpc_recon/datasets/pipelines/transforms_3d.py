@@ -6,6 +6,7 @@ from mmcv.utils import build_from_cfg
 from mmdet.datasets.builder import PIPELINES
 from mmdet3d.core.bbox import (CameraInstance3DBoxes, DepthInstance3DBoxes,
                                LiDARInstance3DBoxes, box_np_ops)
+from mmdet3d.core.points import BasePoints, get_points_type
 from mmdet3d.datasets.builder import OBJECTSAMPLERS
 from mmdet3d.datasets.pipelines import ObjectSample as _ObjectSample
 
@@ -169,10 +170,19 @@ class DropPoints(object):
 
 @PIPELINES.register_module(force=True)
 class RemoveObjectPoints(object):
-    def __init__(self, points_name='points'):
+    def __init__(self,
+                 sweeps_num,
+                 points_name='points_dense',
+                 dataset_type='Waymo',
+                 coord_type='LIDAR',
+                 frame_idx=0):
         if not isinstance(points_name, (list, tuple)):
             points_name = [points_name]
+        self.sweeps_num = sweeps_num
         self.points_name = points_name
+        self.dataset_type = dataset_type.lower()
+        self.coord_type = coord_type
+        self.frame_idx = frame_idx
 
     @staticmethod
     def remove_points_in_boxes(points, boxes):
@@ -181,18 +191,19 @@ class RemoveObjectPoints(object):
         return points
 
     def __call__(self, input_dict):
-        if 'gt_bboxes_3d' in input_dict:
-            for name in self.points_name:
+        for name in self.points_name:
+            if self.dataset_type in ['waymo'] and self.sweeps_num>0:
+                points = input_dict[name]
+                gt_bboxes_3d = input_dict['gt_bboxes_3d']
+                points = np.copy(points.tensor.numpy())
+                points = points[points[:,4]==self.frame_idx,:]
+                points_class = get_points_type(self.coord_type)
+                points = points_class(points, points_dim=points.shape[-1])
+                points = self.remove_points_in_boxes(points, gt_bboxes_3d.tensor.numpy())
+            else:
                 points = input_dict[name]
                 gt_bboxes_3d = input_dict['gt_bboxes_3d']
                 points = self.remove_points_in_boxes(points, gt_bboxes_3d.tensor.numpy())
 
-                ann_info = input_dict['ann_info']
-                if 'sweeps' in ann_info and len(ann_info['sweeps']) > 0:
-                    for i in range(len(input_dict['sweeps'])):
-                        sweep_bboxes_3d = ann_info['sweeps'][i]['gt_bboxes_3d']
-                        if len(sweep_bboxes_3d) > 0:
-                            points = self.remove_points_in_boxes(points, sweep_bboxes_3d.tensor.numpy())
-
-                input_dict[name] = points
+            input_dict[name] = points
         return input_dict

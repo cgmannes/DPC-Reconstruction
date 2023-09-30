@@ -197,12 +197,32 @@ class CenterPoint(_CenterPoint):
         return [bbox_list]
 
     # def forward(self, points, gt_bboxes_3d, gt_labels_3d, **kwargs):
-    #     self.cp_plotter(points, gt_bboxes_3d, gt_labels_3d)
+    #     self.plotter(points, gt_bboxes_3d, gt_labels_3d)
     #     print('CenterPoint Exit')
     #     exit()
     #     return None
 
-    def cp_plotter(self, points, gt_bboxes_3d, gt_labels_3d):
+    def simple_test(self, points, img_metas, img=None, rescale=False, **kwargs):
+        """Test function without augmentaiton."""
+        # self.plotter(points, kwargs['gt_bboxes_3d'][0], kwargs['gt_labels_3d'][0])
+        # exit()
+        img_feats, pts_feats = self.extract_feat(
+            points, img=img, img_metas=img_metas)
+
+        bbox_list = [dict() for i in range(len(img_metas))]
+        if pts_feats and self.with_pts_bbox:
+            bbox_pts = self.simple_test_pts(
+                pts_feats, img_metas, rescale=rescale)
+            for result_dict, pts_bbox in zip(bbox_list, bbox_pts):
+                result_dict['pts_bbox'] = pts_bbox
+        if img_feats and self.with_img_bbox:
+            bbox_img = self.simple_test_img(
+                img_feats, img_metas, rescale=rescale)
+            for result_dict, img_bbox in zip(bbox_list, bbox_img):
+                result_dict['img_bbox'] = img_bbox
+        return bbox_list
+
+    def plotter(self, points, gt_bboxes_3d, gt_labels_3d):
         """Function for performing sanity checks."""
         import datetime
         factor = 1

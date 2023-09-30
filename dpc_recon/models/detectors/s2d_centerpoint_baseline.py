@@ -324,7 +324,7 @@ class S2DCenterPointBaseline(CenterPoint):
             # loss_dict[f'loss_reg_distill_mean'] = loss_reg_distill_mean / self.div
         return loss_dict
 
-    def simple_test(self, points, img_metas, img=None, rescale=False):
+    def simple_test(self, points, img_metas, img=None, rescale=False, **kwargs):
         """Test function without augmentation."""
         img_feats, pts_feats, _, _, _ = self.centerpoint_model_sparse.extract_feat(
             points, img=img, img_metas=img_metas)
