@@ -9,7 +9,7 @@ from tqdm.autonotebook import tqdm
 
 if __name__ == '__main__':
 
-    split = 'val'
+    split = 'train'
     data_root = './data/nuscenes/'
     if split=='train':
         infos_path = data_root + f'nuscenes_infos_{split}.pkl'
@@ -26,9 +26,6 @@ if __name__ == '__main__':
 
     prev_sweeps = None
     for idx, info in tqdm(enumerate(infos['infos']), total=len(infos), desc='Extend nuScenes sweeps'):
-        # for i, cls in enumerate(info['gt_names']):
-        #     if cls in ['car', 'bus', 'truck', 'motorcycle']:
-        #         info['gt_names'][i] = 'car'
         if len(info['sweeps'])==0:
             prev_sweeps = None
         elif prev_sweeps is None:
